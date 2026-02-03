@@ -1,0 +1,93 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Webinar Mini</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; }
+      input, button { padding: 10px; margin: 6px 0; width: 100%; }
+      .row { border: 1px solid #ddd; padding: 12px; margin: 10px 0; border-radius: 10px; }
+      small { color: #666; }
+    </style>
+  </head>
+  <body>
+    <h1>Webinar Mini</h1>
+    <p>Simple JS frontend calling Flask + MongoDB backend.</p>
+
+    <h3>Post a message</h3>
+    <input id="name" placeholder="Your name" />
+    <input id="text" placeholder="Your message" />
+    <button id="send">Send</button>
+
+    <h3>Latest messages</h3>
+    <div id="list"></div>
+
+    <script>
+      // ✅ Replace after App Runner deploy:
+      // e.g. https://xxxxx.awsapprunner.com
+      const API_BASE = "REPLACE_WITH_APP_RUNNER_URL";
+
+      async function loadMessages() {
+        const res = await fetch(`${API_BASE}/api/messages`);
+        const data = await res.json();
+
+        const list = document.getElementById("list");
+        list.innerHTML = "";
+
+        data.forEach(m => {
+          const div = document.createElement("div");
+          div.className = "row";
+          div.innerHTML = `
+            <b>${escapeHtml(m.name)}</b>
+            <p>${escapeHtml(m.text)}</p>
+            <small>${escapeHtml(m.created_at || "")}</small>
+            <button data-id="${m.id}">Delete</button>
+          `;
+          div.querySelector("button").onclick = () => deleteMessage(m.id);
+          list.appendChild(div);
+        });
+      }
+
+      async function sendMessage() {
+        const name = document.getElementById("name").value.trim();
+        const text = document.getElementById("text").value.trim();
+
+        const res = await fetch(`${API_BASE}/api/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, text })
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          alert(err.error || "Failed");
+          return;
+        }
+
+        document.getElementById("text").value = "";
+        await loadMessages();
+      }
+
+      async function deleteMessage(id) {
+        const res = await fetch(`${API_BASE}/api/messages/${id}`, { method: "DELETE" });
+        if (!res.ok) alert("Delete failed");
+        await loadMessages();
+      }
+
+      // Basic escaping (avoid XSS in demo)
+      function escapeHtml(s) {
+        return String(s)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      document.getElementById("send").onclick = sendMessage;
+
+      // Load on start
+      loadMessages();
+    </script>
+  </body>
+</html>
